@@ -696,6 +696,46 @@
             container.innerHTML = html;
         }
 
+// Contoh fungsi ketika borang diserahkan
+async function submitData(formData) {
+    const response = await fetch('/api/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+    });
+    const result = await response.json();
+    if (result.success) {
+        loadRecords(); // Muat semula jadual selepas berjaya hantar
+    }
+}
+
+async function loadRecords() {
+    try {
+        const response = await fetch('/api/records');
+        const records = await response.json();
+
+        const tableBody = document.querySelector('tbody'); // Sesuaikan dengan id/class jadual anda
+        tableBody.innerHTML = ''; // Kosongkan jadual sebelum isi data baru
+
+        records.forEach(record => {
+            // Masukkan data ke dalam baris jadual HTML
+            const row = `<tr>
+                <td>${record.time || ''}</td>
+                <td>${record.batchId || ''}</td>
+                <td>${record.operator || ''}</td>
+                <td>${record.size || ''}</td>
+                <td>${record.details || ''}</td>
+            </tr>`;
+            tableBody.innerHTML += row;
+        });
+    } catch (err) {
+        console.error("Gagal memuatkan rekod:", err);
+    }
+}
+
+// Panggil fungsi ini apabila laman mula dibuka
+loadRecords();
+
         // ================= MANAGER QUERY & CLEAN PDF =================
         function runManagerQuery() {
             const query = document.getElementById('managerSearchInput').value.trim().toLowerCase();
