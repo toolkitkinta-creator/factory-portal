@@ -1,60 +1,65 @@
 const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+const { MongoClient, ServerApiVersion } = require('mongodb');
 const path = require('path');
 
 const app = express();
-app.use(express.json());
-app.use(cors());
+const port = process.env.PORT || 3000;
 
-// Servis fail frontend dari direktori projek yang sama
-app.use(express.static(__dirname));
-
-// Sambungan ke MongoDB Atlas (menggunakan database name: factoryDB)[cite: 1]
+// Your MongoDB Atlas Connection String
 const uri = "mongodb+srv://aniszahirah_db_user:nHp3lPm2rF33svVO@cluster0.wmhmpeu.mongodb.net/factoryDB?appName=Cluster0";
-
-mongoose.connect(uri)
-  .then(() => console.log("Berjaya sambung ke MongoDB Atlas"))
-  .catch(err => console.error("Ralat sambungan MongoDB:", err));
-
-// Skema & Model Data Rekod Kilang
-const recordSchema = new mongoose.Schema({
-    timestamp: String,
-    stage: String,
-    batchId: String,
-    operator: String,
-    date: String,
-    size: String,
-    summary: String
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+    autoSelectFamily: false
+  }
 });
 
-const Record = mongoose.model('Record', recordSchema);
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// API untuk terima data (POST) daripada frontend
+let collection;
+
+async function run() {
+  try {
+    await client.connect();
+    const db = client.db("factoryDB");
+    collection = db.collection("records");
+    console.log("Successfully connected to MongoDB Atlas!");
+  } catch (err) {
+    console.error("Database connection error:", err);
+  }
+}
+run();
+
+// API to save a record
 app.post('/api/records', async (req, res) => {
-    try {
-        const newRecord = new Record(req.body);
-        await newRecord.save();
-        res.json({ success: true, message: 'Data berjaya disimpan ke database!' });
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
+  try {
+    if (!collection) return res.status(500).json({ error: "Database not connected yet" });
+    const result = await collection.insertOne(req.body);
+    res.status(201).json({ success: true, id: result.insertedId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// API untuk ambil senarai data (GET) untuk paparan jadual
+// API to fetch all records
 app.get('/api/records', async (req, res) => {
-    try {
-        const records = await Record.find();
-        res.json(records);
-    } catch (err) {
-        res.status(500).json({ success: false, error: err.message });
-    }
+  try {
+    if (!collection) return res.status(500).json({ error: "Database not connected yet" });
+    const records = await collection.find({}).toArray();
+    res.json(records);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// Route asas untuk memastikan aplikasi memaparkan app.html secara langsung
+// Serve the HTML portal file
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'app.html'));
+  res.sendFile(path.join(__dirname, 'app.html'));
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server berjalan di port ${PORT}`));
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
