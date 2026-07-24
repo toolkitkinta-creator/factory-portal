@@ -50,13 +50,13 @@
 
     <div class="header-box">
         <h2>Factory Production Portal & Management Hub</h2>
-        <p>Local Browser Storage Engine Integration (Offline-Ready)</p>
+        <p>Cloud Database Synchronization Engine (MongoDB Atlas)</p>
     </div>
 
     <!-- Status Bar -->
     <div class="status-bar">
         <div>Network Link State: <span id="netStatus" class="online">ONLINE</span></div>
-        <div>System Engine Buffer: <span id="bufferCount" class="buffer-badge">0 Entries Buffered</span></div>
+        <div>System Engine Buffer: <span id="bufferCount" class="buffer-badge">Cloud Connected</span></div>
     </div>
 
     <!-- Navigation Tabs -->
@@ -148,115 +148,6 @@
             <div id="tableMixingContainer"></div>
         </div>
     </div>
-
-<script>
-    // ================= CENTRALIZED BACKEND SYNC FUNCTIONS =================
-
-    async function saveRecord(record) {
-        try {
-            const response = await fetch('/api/records', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(record)
-            });
-            const data = await response.json();
-            if (data.success) {
-                updateNetworkStatus(true);
-                refreshStationTable(record.stage);
-            }
-        } catch (err) {
-            updateNetworkStatus(false);
-            console.error('Failed to sync with cloud database:', err);
-        }
-    }
-
-    async function refreshStationTable(stage) {
-        try {
-            const response = await fetch('/api/records');
-            const records = await response.json();
-            updateNetworkStatus(true);
-
-            const filtered = records.filter(r => r.stage === stage);
-            const containerName = `table${stage}Container`;
-            const container = document.getElementById(containerName);
-
-            if (filtered.length === 0) {
-                container.innerHTML = '<table><tr><th>Time</th><th>Batch ID</th><th>Operator</th><th>Size</th><th>Details</th></tr><tr><td colspan="5" style="text-align: center; color: #777;">No entries submitted.</td></tr></table>';
-                return;
-            }
-
-            let html = `<table>
-                            <tr>
-                                <th>Time</th>
-                                <th>Batch ID</th>
-                                <th>Operator</th>
-                                <th>Size</th>
-                                <th>Details</th>
-                            </tr>`;
-            filtered.forEach(r => {
-                html += `<tr>
-                            <td>${r.timestamp}</td>
-                            <td><b>${r.batchId}</b></td>
-                            <td>${r.operator}</td>
-                            <td>${r.size}</td>
-                            <td>${r.summary}</td>
-                         </tr>`;
-            });
-            html += `</table>`;
-            container.innerHTML = html;
-        } catch (err) {
-            updateNetworkStatus(false);
-        }
-    }
-
-    async function runManagerQuery() {
-        const query = document.getElementById('managerSearchInput').value.trim().toLowerCase();
-        const container = document.getElementById('managerResultsContainer');
-        const pdfContainer = document.getElementById('pdfTableContainer');
-        const pdfMeta = document.getElementById('pdfReportMeta');
-
-        try {
-            const response = await fetch('/api/records');
-            const records = await response.json();
-            updateNetworkStatus(true);
-
-            const filtered = query ? records.filter(r => r.batchId && r.batchId.toLowerCase().includes(query)) : records;
-
-            if (filtered.length === 0) {
-                container.innerHTML = '<p style="color: red;">No matching records found across database tables.</p>';
-                pdfContainer.innerHTML = '';
-                return;
-            }
-
-            let html = `<table>
-                            <tr>
-                                <th>Process Stage</th>
-                                <th>Batch ID</th>
-                                <th>Operator Name</th>
-                                <th>Production Date</th>
-                                <th>Bag Size</th>
-                                <th>Detailed Stage Data Summary</th>
-                            </tr>`;
-            filtered.forEach(r => {
-                html += `<tr>
-                            <td><b>${r.stage}</b></td>
-                            <td>${r.batchId}</td>
-                            <td>${r.operator}</td>
-                            <td>${r.date}</td>
-                            <td>${r.size}</td>
-                            <td>${r.summary}</td>
-                         </tr>`;
-            });
-            html += `</table>`;
-            container.innerHTML = html;
-            pdfContainer.innerHTML = html;
-            pdfMeta.innerText = query ? `Filter Batch ID: ${query.toUpperCase()} | Generated: ${new Date().toLocaleDateString()}` : `Complete Production Archive | Generated: ${new Date().toLocaleDateString()}`;
-        } catch (err) {
-            updateNetworkStatus(false);
-            container.innerHTML = '<p style="color: red;">Error connecting to server database.</p>';
-        }
-    }
-</script>
 
     <!-- ================= BLOWING STATION VIEW ================= -->
     <div id="viewBlowing" class="stage-view">
@@ -505,7 +396,7 @@
             document.getElementById('mixTotalWeightDisplay').innerText = total.toFixed(2);
         }
 
-        function submitMixing(e) {
+        async function submitMixing(e) {
             e.preventDefault();
             const batchId = document.getElementById('mixBatch').value.trim();
             const operator = document.getElementById('mixOperator').value.trim();
@@ -526,7 +417,7 @@
                 summary: `Machine: ${machine} | Recipes: ${recipes.join(', ')} | Total Wt: ${document.getElementById('mixTotalWeightDisplay').innerText}kg`
             };
 
-            saveRecord(record);
+            await saveRecord(record);
             alert('Mixing data submitted successfully!');
             document.getElementById('formMixing').reset();
             document.getElementById('mixDate').value = todayStr;
@@ -572,7 +463,7 @@
             document.getElementById('blowTotalWaste').value = totalWaste.toFixed(2);
         }
 
-        function submitBlowing(e) {
+        async function submitBlowing(e) {
             e.preventDefault();
             const record = {
                 timestamp: new Date().toLocaleTimeString(),
@@ -583,7 +474,7 @@
                 size: document.getElementById('blowSize').value.trim(),
                 summary: `Machine: ${document.getElementById('blowMachine').value} | Output: ${document.getElementById('blowTotalOutput').value}kg | Waste: ${document.getElementById('blowTotalWaste').value}kg`
             };
-            saveRecord(record);
+            await saveRecord(record);
             alert('Blowing data submitted successfully!');
             document.getElementById('formBlowing').reset();
             document.getElementById('blowDate').value = todayStr;
@@ -635,7 +526,7 @@
             document.getElementById('cutTotalWaste').value = totalWaste.toFixed(2);
         }
 
-        function submitCutting(e) {
+        async function submitCutting(e) {
             e.preventDefault();
             const record = {
                 timestamp: new Date().toLocaleTimeString(),
@@ -646,7 +537,7 @@
                 size: document.getElementById('cutSize').value.trim(),
                 summary: `Machine: ${document.getElementById('cutMachine').value} | Pkts: ${document.getElementById('cutTotalPkts').value} | Total Wt: ${document.getElementById('cutTotalWt').value}kg`
             };
-            saveRecord(record);
+            await saveRecord(record);
             alert('Cutting data submitted successfully!');
             document.getElementById('formCutting').reset();
             document.getElementById('cutDate').value = todayStr;
@@ -655,137 +546,118 @@
             refreshStationTable('Cutting');
         }
 
-        // ================= GENERAL DATABASE / STORAGE FUNCTIONS =================
-        function saveRecord(record) {
-            let records = JSON.parse(localStorage.getItem('factoryGlobalDB')) || [];
-            records.push(record);
-            localStorage.setItem('factoryGlobalDB', JSON.stringify(records));
-
-            document.getElementById('bufferCount').innerText = `${records.length} Entries Buffered`;
-        }
-
-        function refreshStationTable(stage) {
-            const records = JSON.parse(localStorage.getItem('factoryGlobalDB')) || [];
-            const filtered = records.filter(r => r.stage === stage);
-            const containerName = `table${stage}Container`;
-            const container = document.getElementById(containerName);
-
-            if (filtered.length === 0) {
-                container.innerHTML = '<table><tr><th>Time</th><th>Batch ID</th><th>Operator</th><th>Machine</th><th>Size</th><th>Details</th></tr><tr><td colspan="6" style="text-align: center; color: #777;">No entries submitted today.</td></tr></table>';
-                return;
+        // ================= CLOUD DATABASE API SYNC FUNCTIONS =================
+        async function saveRecord(record) {
+            try {
+                const response = await fetch('/api/records', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(record)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    updateNetworkStatus(true);
+                }
+            } catch (err) {
+                updateNetworkStatus(false);
+                console.error('Failed to sync record to cloud database:', err);
             }
-
-            let html = `<table>
-                            <tr>
-                                <th>Time</th>
-                                <th>Batch ID</th>
-                                <th>Operator</th>
-                                <th>Size</th>
-                                <th>Details</th>
-                            </tr>`;
-            filtered.forEach(r => {
-                html += `<tr>
-                            <td>${r.timestamp}</td>
-                            <td><b>${r.batchId}</b></td>
-                            <td>${r.operator}</td>
-                            <td>${r.size}</td>
-                            <td>${r.summary}</td>
-                         </tr>`;
-            });
-            html += `</table>`;
-            container.innerHTML = html;
         }
 
-// Contoh fungsi ketika borang diserahkan
-async function submitData(formData) {
-    const response = await fetch('/api/records', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
-    });
-    const result = await response.json();
-    if (result.success) {
-        loadRecords(); // Muat semula jadual selepas berjaya hantar
-    }
-}
+        async function refreshStationTable(stage) {
+            try {
+                const response = await fetch('/api/records');
+                const records = await response.json();
+                updateNetworkStatus(true);
 
-async function loadRecords() {
-    try {
-        const response = await fetch('/api/records');
-        const records = await response.json();
+                const filtered = records.filter(r => r.stage === stage);
+                const containerName = `table${stage}Container`;
+                const container = document.getElementById(containerName);
 
-        const tableBody = document.querySelector('tbody'); // Sesuaikan dengan id/class jadual anda
-        tableBody.innerHTML = ''; // Kosongkan jadual sebelum isi data baru
+                if (filtered.length === 0) {
+                    container.innerHTML = '<table><tr><th>Time</th><th>Batch ID</th><th>Operator</th><th>Size</th><th>Details</th></tr><tr><td colspan="5" style="text-align: center; color: #777;">No entries submitted today.</td></tr></table>';
+                    return;
+                }
 
-        records.forEach(record => {
-            // Masukkan data ke dalam baris jadual HTML
-            const row = `<tr>
-                <td>${record.time || ''}</td>
-                <td>${record.batchId || ''}</td>
-                <td>${record.operator || ''}</td>
-                <td>${record.size || ''}</td>
-                <td>${record.details || ''}</td>
-            </tr>`;
-            tableBody.innerHTML += row;
-        });
-    } catch (err) {
-        console.error("Gagal memuatkan rekod:", err);
-    }
-}
-
-// Panggil fungsi ini apabila laman mula dibuka
-loadRecords();
+                let html = `<table>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Batch ID</th>
+                                    <th>Operator</th>
+                                    <th>Size</th>
+                                    <th>Details</th>
+                                </tr>`;
+                filtered.forEach(r => {
+                    html += `<tr>
+                                <td>${r.timestamp || ''}</td>
+                                <td><b>${r.batchId || ''}</b></td>
+                                <td>${r.operator || ''}</td>
+                                <td>${r.size || ''}</td>
+                                <td>${r.summary || ''}</td>
+                             </tr>`;
+                });
+                html += `</table>`;
+                container.innerHTML = html;
+            } catch (err) {
+                updateNetworkStatus(false);
+                console.error("Failed to load records from server:", err);
+            }
+        }
 
         // ================= MANAGER QUERY & CLEAN PDF =================
-        function runManagerQuery() {
+        async function runManagerQuery() {
             const query = document.getElementById('managerSearchInput').value.trim().toLowerCase();
-            const records = JSON.parse(localStorage.getItem('factoryGlobalDB')) || [];
             const container = document.getElementById('managerResultsContainer');
             const pdfContainer = document.getElementById('pdfTableContainer');
             const pdfMeta = document.getElementById('pdfReportMeta');
 
-            const filtered = query ? records.filter(r => r.batchId.toLowerCase().includes(query)) : records;
+            try {
+                const response = await fetch('/api/records');
+                const records = await response.json();
+                updateNetworkStatus(true);
 
-            if (filtered.length === 0) {
-                container.innerHTML = '<p style="color: red;">No matching records found across database tables.</p>';
-                pdfContainer.innerHTML = '';
-                return;
+                const filtered = query ? records.filter(r => r.batchId && r.batchId.toLowerCase().includes(query)) : records;
+
+                if (filtered.length === 0) {
+                    container.innerHTML = '<p style="color: red;">No matching records found across database tables.</p>';
+                    pdfContainer.innerHTML = '';
+                    return;
+                }
+
+                let html = `<table>
+                                <tr>
+                                    <th>Process Stage</th>
+                                    <th>Batch ID</th>
+                                    <th>Operator Name</th>
+                                    <th>Production Date</th>
+                                    <th>Bag Size</th>
+                                    <th>Detailed Stage Data Summary</th>
+                                </tr>`;
+                filtered.forEach(r => {
+                    html += `<tr>
+                                <td><b>${r.stage || ''}</b></td>
+                                <td>${r.batchId || ''}</td>
+                                <td>${r.operator || ''}</td>
+                                <td>${r.date || ''}</td>
+                                <td>${r.size || ''}</td>
+                                <td>${r.summary || ''}</td>
+                             </tr>`;
+                });
+                html += `</table>`;
+                container.innerHTML = html;
+                pdfContainer.innerHTML = html;
+                pdfMeta.innerText = query ? `Filter Batch ID: ${query.toUpperCase()} | Generated: ${new Date().toLocaleDateString()}` : `Complete Production Archive | Generated: ${new Date().toLocaleDateString()}`;
+            } catch (err) {
+                updateNetworkStatus(false);
+                container.innerHTML = '<p style="color: red;">Error connecting to server database.</p>';
             }
-
-            // Build UI table
-            let html = `<table>
-                            <tr>
-                                <th>Process Stage</th>
-                                <th>Batch ID</th>
-                                <th>Operator Name</th>
-                                <th>Production Date</th>
-                                <th>Bag Size</th>
-                                <th>Detailed Stage Data Summary</th>
-                            </tr>`;
-            filtered.forEach(r => {
-                html += `<tr>
-                            <td><b>${r.stage}</b></td>
-                            <td>${r.batchId}</td>
-                            <td>${r.operator}</td>
-                            <td>${r.date}</td>
-                            <td>${r.size}</td>
-                            <td>${r.summary}</td>
-                         </tr>`;
-            });
-            html += `</table>`;
-            container.innerHTML = html;
-
-            // Build identical clean table layout specifically for hidden PDF export container
-            pdfContainer.innerHTML = html;
-            pdfMeta.innerText = query ? `Filter Batch ID: ${query.toUpperCase()} | Generated: ${new Date().toLocaleDateString()}` : `Complete Production Archive | Generated: ${new Date().toLocaleDateString()}`;
         }
 
-        function downloadManagerPDF() {
-            // Ensure data is pre-loaded into the clean printable container before generating PDF
-            runManagerQuery();
+        async function downloadManagerPDF() {
+            await runManagerQuery();
 
             const element = document.getElementById('printableManagerArea');
-            element.style.display = 'block'; // Temporarily reveal for html2pdf capture
+            element.style.display = 'block';
 
             const options = {
                 margin:       0.4,
@@ -796,7 +668,7 @@ loadRecords();
             };
 
             html2pdf().from(element).set(options).save().then(() => {
-                element.style.display = 'none'; // Hide again after capture
+                element.style.display = 'none';
             });
         }
 
@@ -805,9 +677,7 @@ loadRecords();
         addBlowingRollCard();
         addCuttingRollCard();
         
-        // Load initial state counts
-        const initialRecords = JSON.parse(localStorage.getItem('factoryGlobalDB')) || [];
-        document.getElementById('bufferCount').innerText = `${initialRecords.length} Entries Buffered`;
+        // Initial load for mixing table from cloud DB
         refreshStationTable('Mixing');
     </script>
 </body>
