@@ -6,7 +6,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Your MongoDB Atlas Connection String
-const uri = "mongodb+srv://aniszahirah_db_user:nHp3lPm2rF33svVO@cluster0.wmhmpeu.mongodb.net/?appName=Cluster0";
+const uri = "mongodb+srv://aniszahirah_db_user:nHp3lPm2rF33svVO@cluster0.wmhmpeu.mongodb.net/factoryDB?appName=Cluster0";
 
 const client = new MongoClient(uri, {
   serverApi: {
