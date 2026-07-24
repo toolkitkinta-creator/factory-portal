@@ -149,6 +149,115 @@
         </div>
     </div>
 
+<script>
+    // ================= CENTRALIZED BACKEND SYNC FUNCTIONS =================
+
+    async function saveRecord(record) {
+        try {
+            const response = await fetch('/api/records', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(record)
+            });
+            const data = await response.json();
+            if (data.success) {
+                updateNetworkStatus(true);
+                refreshStationTable(record.stage);
+            }
+        } catch (err) {
+            updateNetworkStatus(false);
+            console.error('Failed to sync with cloud database:', err);
+        }
+    }
+
+    async function refreshStationTable(stage) {
+        try {
+            const response = await fetch('/api/records');
+            const records = await response.json();
+            updateNetworkStatus(true);
+
+            const filtered = records.filter(r => r.stage === stage);
+            const containerName = `table${stage}Container`;
+            const container = document.getElementById(containerName);
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<table><tr><th>Time</th><th>Batch ID</th><th>Operator</th><th>Size</th><th>Details</th></tr><tr><td colspan="5" style="text-align: center; color: #777;">No entries submitted.</td></tr></table>';
+                return;
+            }
+
+            let html = `<table>
+                            <tr>
+                                <th>Time</th>
+                                <th>Batch ID</th>
+                                <th>Operator</th>
+                                <th>Size</th>
+                                <th>Details</th>
+                            </tr>`;
+            filtered.forEach(r => {
+                html += `<tr>
+                            <td>${r.timestamp}</td>
+                            <td><b>${r.batchId}</b></td>
+                            <td>${r.operator}</td>
+                            <td>${r.size}</td>
+                            <td>${r.summary}</td>
+                         </tr>`;
+            });
+            html += `</table>`;
+            container.innerHTML = html;
+        } catch (err) {
+            updateNetworkStatus(false);
+        }
+    }
+
+    async function runManagerQuery() {
+        const query = document.getElementById('managerSearchInput').value.trim().toLowerCase();
+        const container = document.getElementById('managerResultsContainer');
+        const pdfContainer = document.getElementById('pdfTableContainer');
+        const pdfMeta = document.getElementById('pdfReportMeta');
+
+        try {
+            const response = await fetch('/api/records');
+            const records = await response.json();
+            updateNetworkStatus(true);
+
+            const filtered = query ? records.filter(r => r.batchId && r.batchId.toLowerCase().includes(query)) : records;
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<p style="color: red;">No matching records found across database tables.</p>';
+                pdfContainer.innerHTML = '';
+                return;
+            }
+
+            let html = `<table>
+                            <tr>
+                                <th>Process Stage</th>
+                                <th>Batch ID</th>
+                                <th>Operator Name</th>
+                                <th>Production Date</th>
+                                <th>Bag Size</th>
+                                <th>Detailed Stage Data Summary</th>
+                            </tr>`;
+            filtered.forEach(r => {
+                html += `<tr>
+                            <td><b>${r.stage}</b></td>
+                            <td>${r.batchId}</td>
+                            <td>${r.operator}</td>
+                            <td>${r.date}</td>
+                            <td>${r.size}</td>
+                            <td>${r.summary}</td>
+                         </tr>`;
+            });
+            html += `</table>`;
+            container.innerHTML = html;
+            pdfContainer.innerHTML = html;
+            pdfMeta.innerText = query ? `Filter Batch ID: ${query.toUpperCase()} | Generated: ${new Date().toLocaleDateString()}` : `Complete Production Archive | Generated: ${new Date().toLocaleDateString()}`;
+        } catch (err) {
+            updateNetworkStatus(false);
+            container.innerHTML = '<p style="color: red;">Error connecting to server database.</p>';
+        }
+    }
+</script>
+
     <!-- ================= BLOWING STATION VIEW ================= -->
     <div id="viewBlowing" class="stage-view">
         <div class="container">
